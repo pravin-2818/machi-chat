@@ -3,261 +3,271 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chat Room</title>
+    <title>Chat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    
     <style>
-        * { box-sizing: border-box; outline: none; }
-        body { font-family: 'Inter', sans-serif; background: #121212; color: white; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        /* Base Styles */
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        body { 
+            margin: 0; font-family: 'Inter', sans-serif; background: #0a0a0a; color: white; 
+            height: 100dvh; /* Mobile height fix */
+            display: flex; overflow: hidden; 
+        }
 
-        /* --- Sidebar --- */
+        /* Sidebar (User List) */
         .sidebar {
-            width: 280px; background: #1a1a1a; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #333;
-            transition: 0.3s; z-index: 10;
+            width: 280px; background: #111; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 20px; transition: 0.3s; z-index: 100;
         }
         @media (max-width: 768px) {
-            .sidebar { position: fixed; left: -100%; top: 0; height: 100%; width: 80%; box-shadow: 5px 0 15px black; }
+            .sidebar { position: fixed; left: -100%; top: 0; height: 100%; width: 85%; box-shadow: 10px 0 30px rgba(0,0,0,0.8); }
             .sidebar.active { left: 0; }
         }
 
-        .sidebar h2 { color: #00adb5; margin-top: 0; font-size: 1.8rem; }
-        .info-card { background: #252525; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #333; }
-        .info-card p { font-size: 1rem; color: #aaa; margin: 5px 0; }
-        .info-card strong { font-size: 1.2rem; color: white; }
-        .btn-copy { background: #00adb5; color: black; border: none; padding: 12px; width: 100%; margin-top: 10px; border-radius: 8px; font-weight: bold; font-size: 1rem; }
+        .user-list { flex: 1; overflow-y: auto; margin-top: 20px; }
+        .user-item { 
+            padding: 12px; background: #1a1a1a; margin-bottom: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; 
+        }
+        .user-name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .status-icon { font-size: 1.2rem; } /* Call Icon */
 
-        .user-list { margin-top: 20px; overflow-y: auto; flex: 1; }
-        .user-item { padding: 12px; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 10px; font-size: 1.1rem; }
-        .status-dot { width: 12px; height: 12px; background: #00e676; border-radius: 50%; }
-
-        /* --- Chat Area --- */
-        .chat-container { flex: 1; display: flex; flex-direction: column; background: #121212; position: relative; width: 100%; }
+        /* Chat Area */
+        .chat-area { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
         
-        .chat-header { padding: 15px; background: #1a1a1a; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .menu-btn { display: none; background: none; border: none; color: white; font-size: 1.8rem; }
+        .header { 
+            padding: 15px; background: #111; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; 
+        }
+        .menu-btn { background: none; border: none; color: white; font-size: 1.5rem; display: none; }
         @media (max-width: 768px) { .menu-btn { display: block; } }
 
-        .call-controls button {
-            background: #252525; border: 1px solid #444; color: white; width: 50px; height: 50px; border-radius: 50%;
-            font-size: 1.5rem; margin-left: 10px; cursor: pointer;
+        .call-btn {
+            background: #222; border: 1px solid #444; color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; margin-left: 10px;
         }
+        .call-btn:hover { background: #007bff; border-color: #007bff; }
 
-        #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        .message { max-width: 85%; padding: 14px 18px; border-radius: 18px; font-size: 1.1rem; line-height: 1.4; }
-        .my-msg { align-self: flex-end; background: #00adb5; color: black; border-bottom-right-radius: 4px; }
-        .other-msg { align-self: flex-start; background: #252525; border-bottom-left-radius: 4px; }
-        .user-label { font-size: 0.8rem; font-weight: bold; display: block; margin-bottom: 4px; opacity: 0.7; }
+        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .message { padding: 12px 16px; border-radius: 12px; max-width: 85%; line-height: 1.4; font-size: 1rem; }
+        .my-msg { align-self: flex-end; background: #007bff; color: white; }
+        .other-msg { align-self: flex-start; background: #222; border: 1px solid #333; }
 
-        .input-area { padding: 15px; background: #1a1a1a; display: flex; align-items: center; gap: 10px; }
-        input { flex: 1; padding: 15px; border-radius: 30px; border: none; background: #252525; color: white; font-size: 1.1rem; }
-        #send-btn { background: #00adb5; border: none; padding: 15px 25px; border-radius: 30px; font-weight: bold; font-size: 1.2rem; }
+        /* Input Area - Fixed for Mobile */
+        .input-area {
+            padding: 15px; background: #111; border-top: 1px solid #333; display: flex; gap: 10px;
+            /* Safe area for iPhone home bar */
+            padding-bottom: env(safe-area-inset-bottom, 20px); 
+        }
+        input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid #333; background: #222; color: white; font-size: 1rem; }
+        #send-btn { background: #007bff; border: none; padding: 12px 20px; border-radius: 25px; font-weight: bold; }
 
-        /* --- FULL SCREEN VIDEO (Zoom Style) --- */
-        #video-container {
+        /* ZOOM STYLE VIDEO UI */
+        #video-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: black; z-index: 9999; display: none; flex-direction: column; justify-content: center;
+            background: #000; z-index: 2000; display: none; flex-direction: column;
         }
+        .video-grid { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
         video#remote-video { width: 100%; height: 100%; object-fit: contain; }
         video#local-video {
-            position: absolute; bottom: 100px; right: 20px; width: 120px; height: 160px;
-            object-fit: cover; border-radius: 10px; border: 2px solid white; background: #333;
+            position: absolute; bottom: 100px; right: 20px; width: 100px; height: 140px;
+            background: #222; border: 1px solid #555; border-radius: 8px; object-fit: cover; z-index: 2001;
         }
-        .end-call-btn {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: #ff4757; color: white; padding: 15px 40px; border-radius: 30px;
-            font-size: 1.2rem; border: none; font-weight: bold; cursor: pointer; box-shadow: 0 0 20px rgba(255, 71, 87, 0.5);
-        }
-
-        /* --- Left Side Call Notification --- */
-        #call-notification {
-            position: fixed; top: 80px; left: 20px; background: rgba(0,0,0,0.9);
-            border: 2px solid #00adb5; padding: 15px; border-radius: 15px;
-            display: none; align-items: center; gap: 15px; z-index: 2000;
-            box-shadow: 0 5px 20px black; animation: slideIn 0.5s;
-        }
-        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
         
-        .caller-icon { font-size: 2rem; }
-        .caller-info h4 { margin: 0; color: #00adb5; font-size: 1.2rem; }
-        .caller-info p { margin: 0; font-size: 0.9rem; color: #ccc; }
-        .call-actions { display: flex; gap: 10px; }
-        .btn-acc { background: #00e676; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; }
-        .btn-rej { background: #ff4757; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; }
+        /* Zoom Controls Bar */
+        .video-controls {
+            height: 80px; background: #111; display: flex; justify-content: center; align-items: center; gap: 30px;
+            padding-bottom: env(safe-area-inset-bottom, 10px);
+        }
+        .ctrl-btn {
+            background: #333; border: none; color: white; width: 50px; height: 50px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center;
+        }
+        .btn-end { background: #ff4757; width: 60px; height: 60px; font-size: 1.5rem; }
 
-        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 5; }
+        /* Call Alert */
+        #call-alert {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(20,20,20,0.95); padding: 20px; border-radius: 15px; border: 1px solid #007bff;
+            display: none; z-index: 3000; text-align: center; width: 90%; max-width: 300px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="overlay" onclick="toggleSidebar()"></div>
-
-    <div id="call-notification">
-        <div class="caller-icon">📞</div>
-        <div class="caller-info">
-            <h4 id="caller-name">Machi</h4>
-            <p id="call-type">Incoming Call...</p>
-        </div>
-        <div class="call-actions">
-            <button class="btn-acc" onclick="acceptCall()">Accept</button>
-            <button class="btn-rej" onclick="rejectCall()">Reject</button>
-        </div>
-    </div>
-
     <div class="sidebar" id="sidebar">
-        <h2>⚡ Machi Chat</h2>
-        <div class="info-card">
-            <p>ID</p><strong>{{ room }}</strong>
-            <p>Password</p><strong>{{ password }}</strong>
-            <button class="btn-copy" onclick="copyLink()">📋 Copy Link</button>
+        <h2 style="color:#007bff; margin-top:0;">Machi Chat</h2>
+        <div style="background:#222; padding:15px; border-radius:10px; margin-bottom:20px;">
+            <p style="margin:0; color:#888;">ID: <strong style="color:white;">{{ room }}</strong></p>
+            <p style="margin:5px 0 0 0; color:#888;">Pass: <strong style="color:white;">{{ password }}</strong></p>
+            <button onclick="copyLink()" style="width:100%; margin-top:10px; padding:8px; background:#007bff; border:none; border-radius:5px; color:white; font-weight:bold;">Copy Link</button>
         </div>
-        <h3 style="margin-top:20px; color:#00adb5;">👥 Online</h3>
+        <h3 style="color:#888;">Online</h3>
         <div class="user-list" id="user-list"></div>
-        <a href="{{ url_for('logout') }}" style="margin-top:auto; color:#ff4757; text-align:center; padding:15px; text-decoration:none; font-weight:bold; font-size:1.2rem;">Logout</a>
+        <a href="{{ url_for('logout') }}" style="margin-top:auto; text-align:center; color:#ff4757; text-decoration:none; font-weight:bold; padding:15px;">Logout</a>
     </div>
 
-    <div class="chat-container">
-        <div class="chat-header">
+    <div class="chat-area">
+        <div class="header">
             <button class="menu-btn" onclick="toggleSidebar()">☰</button>
-            <div id="typing-status" style="color:#00adb5; font-style:italic;"></div>
-            <div class="call-controls">
-                <button onclick="startCall('audio')">📞</button>
-                <button onclick="startCall('video')">📹</button>
+            <div id="typing" style="color:#007bff; font-size:0.9rem;"></div>
+            <div>
+                <button class="call-btn" onclick="startCall('audio')">📞</button>
+                <button class="call-btn" onclick="startCall('video')">📹</button>
             </div>
         </div>
 
-        <div id="chat-box"><div style="text-align:center; opacity:0.5; margin-top:10px;">🔒 Secure Chat</div></div>
-
-        <div id="video-container">
-            <video id="remote-video" autoplay playsinline></video>
-            <video id="local-video" autoplay playsinline muted></video>
-            <button class="end-call-btn" onclick="endCall()">End Call</button>
-        </div>
+        <div id="chat-box"></div>
 
         <div class="input-area">
-            <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off">
-            <button id="send-btn" onclick="sendMessage()">➤</button>
+            <input type="text" id="msg" placeholder="Message..." autocomplete="off">
+            <button id="send-btn" onclick="send()">➤</button>
+        </div>
+    </div>
+
+    <div id="video-overlay">
+        <div class="video-grid">
+            <video id="remote-video" autoplay playsinline></video>
+            <video id="local-video" autoplay playsinline muted></video>
+        </div>
+        <div class="video-controls">
+            <button class="ctrl-btn" onclick="toggleMute()">🎤</button>
+            <button class="ctrl-btn btn-end" onclick="endCall()">❌</button>
+            <button class="ctrl-btn" onclick="toggleVideo()">📷</button>
+        </div>
+    </div>
+
+    <div id="call-alert">
+        <h3 id="caller-name" style="margin-top:0;">Incoming...</h3>
+        <div style="display:flex; justify-content:center; gap:20px; margin-top:20px;">
+            <button onclick="acceptCall()" style="background:#00e676; border:none; padding:10px 20px; border-radius:20px; font-weight:bold;">Accept</button>
+            <button onclick="rejectCall()" style="background:#ff4757; color:white; border:none; padding:10px 20px; border-radius:20px; font-weight:bold;">Reject</button>
         </div>
     </div>
 
 <script>
-    function toggleSidebar() {
-        document.getElementById('sidebar').classList.toggle('active');
-        document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('active') ? 'block' : 'none';
-    }
-
     var socket = io();
-    var currentRoom = "{{ room }}";
-    var username = "{{ username }}";
+    var room = "{{ room }}";
+    var user = "{{ username }}";
     var localStream;
     var peer;
     var callActive = false;
 
-    function copyLink() {
-        navigator.clipboard.writeText("{{ share_link | safe }}").then(() => alert("Link Copied!"));
-    }
+    // Mobile Sidebar
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
+    function copyLink() { navigator.clipboard.writeText("{{ share_link | safe }}").then(()=>alert('Copied!')); }
 
-    socket.emit('join', {'username': username, 'room': currentRoom});
-    
+    // Init
+    socket.emit('join', {username: user, room: room});
+
+    // --- User List with Icons ---
     socket.on('update_users', function(data) {
         var list = document.getElementById('user-list');
         list.innerHTML = "";
-        data.users.forEach(user => {
-            list.innerHTML += `<div class="user-item"><div class="status-dot"></div><span>${user}</span></div>`;
+        data.users.forEach(u => {
+            var icon = "";
+            if(u.status === 'audio') icon = "📞";
+            if(u.status === 'video') icon = "📹";
+            list.innerHTML += `
+                <div class="user-item">
+                    <div class="user-name">🟢 ${u.name}</div>
+                    <div class="status-icon">${icon}</div>
+                </div>`;
         });
     });
 
-    var input = document.getElementById("msg-input");
-    input.addEventListener('input', () => socket.emit('typing', {'username': username, 'room': currentRoom}));
-    socket.on('display_typing', data => {
-        document.getElementById('typing-status').innerText = data.user + " is typing...";
-        setTimeout(() => document.getElementById('typing-status').innerText = "", 2000);
-    });
-
-    function sendMessage() {
-        if(input.value.trim() !== "") {
-            socket.emit('send_message', {'msg': input.value, 'user': username, 'room': currentRoom});
-            input.value = "";
+    // Chat
+    var input = document.getElementById('msg');
+    input.addEventListener('keydown', e => { if(e.key === 'Enter') send(); });
+    function send() {
+        if(input.value.trim()){
+            socket.emit('send_message', {msg: input.value, user: user, room: room});
+            input.value = '';
         }
     }
-    input.addEventListener("keydown", e => { if(e.key === "Enter") sendMessage(); });
-
     socket.on('receive_message', data => {
-        var chatBox = document.getElementById("chat-box");
-        var div = document.createElement("div");
-        if (data.user === 'System') {
-            div.style.textAlign = 'center'; div.style.color = '#888'; div.innerText = data.msg;
-        } else {
-            div.className = "message " + (data.user === username ? "my-msg" : "other-msg");
-            div.innerHTML = `<span class='user-label'>${data.user}</span>${data.msg}`;
-        }
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
+        var box = document.getElementById('chat-box');
+        var cls = (data.user === user) ? 'my-msg' : (data.user === 'System' ? 'system' : 'other-msg');
+        box.innerHTML += `<div class="message ${cls}"><b>${data.user === 'System'?'':data.user}</b> ${data.msg}</div>`;
+        box.scrollTop = box.scrollHeight;
     });
 
-    // --- CALL LOGIC + AUDIO FIX ---
+    // --- ZOOM STYLE CALL LOGIC ---
     function startCall(type) {
-        if(callActive) return alert("Call active!");
-        navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true }).then(stream => {
-            localStream = stream;
-            document.getElementById('video-container').style.display = 'flex';
-            document.getElementById('local-video').srcObject = stream;
-            socket.emit('call_invite', {'caller': username, 'room': currentRoom, 'type': type});
-            callActive = true;
+        if(callActive) return alert("Already on call!");
+        navigator.mediaDevices.getUserMedia({video: type==='video', audio: true}).then(stream => {
+            setupCallUI(stream, type);
+            socket.emit('call_invite', {caller: user, room: room, type: type});
+            socket.emit('update_status', {status: type, room: room}); // Update Icon
             
-            // STUN Server Config for Audio/Video over Internet
             peer = new SimplePeer({
-                initiator: true,
-                trickl: false,
-                stream: stream,
-                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } 
+                initiator: true, trickl: false, stream: stream,
+                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
             });
-
-            peer.on('signal', data => socket.emit('signal_data', {'signal': data, 'room': currentRoom}));
-            peer.on('stream', stream => document.getElementById('remote-video').srcObject = stream);
-        }).catch(err => alert("Mic/Camera Error: " + err));
+            setupPeerEvents(peer);
+        }).catch(e => alert("Permission Error: " + e));
     }
 
     socket.on('call_incoming', data => {
-        if(data.caller === username || callActive) return;
-        document.getElementById('caller-name').innerText = data.caller;
-        document.getElementById('call-type').innerText = "Incoming " + data.type + " call...";
-        document.getElementById('call-notification').style.display = 'flex';
-        window.incomingSignalData = data;
+        if(data.caller === user || callActive) return;
+        document.getElementById('caller-name').innerText = "📞 " + data.caller;
+        document.getElementById('call-alert').style.display = 'block';
+        window.incomingData = data;
     });
 
     function acceptCall() {
-        document.getElementById('call-notification').style.display = 'none';
-        var data = window.incomingSignalData;
-        navigator.mediaDevices.getUserMedia({ video: data.type === 'video', audio: true }).then(stream => {
-            localStream = stream;
-            document.getElementById('video-container').style.display = 'flex';
-            document.getElementById('local-video').srcObject = stream;
-            callActive = true;
+        document.getElementById('call-alert').style.display = 'none';
+        var data = window.incomingData;
+        navigator.mediaDevices.getUserMedia({video: data.type==='video', audio: true}).then(stream => {
+            setupCallUI(stream, data.type);
+            socket.emit('update_status', {status: data.type, room: room}); // Update Icon
             
             peer = new SimplePeer({
-                initiator: false,
-                trickl: false,
-                stream: stream,
+                initiator: false, trickl: false, stream: stream,
                 config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
             });
-
-            peer.on('signal', data => socket.emit('signal_data', {'signal': data, 'room': currentRoom}));
-            peer.on('stream', stream => document.getElementById('remote-video').srcObject = stream);
-            peer.signal(data.signal); 
+            setupPeerEvents(peer);
+            peer.signal(data.signal);
         });
     }
 
-    function rejectCall() { document.getElementById('call-notification').style.display = 'none'; }
+    function setupCallUI(stream, type) {
+        callActive = true;
+        localStream = stream;
+        document.getElementById('video-overlay').style.display = 'flex';
+        document.getElementById('local-video').srcObject = stream;
+        // If audio call, hide videos but keep stream active
+        if(type === 'audio') {
+            document.getElementById('local-video').style.opacity = '0';
+            document.getElementById('remote-video').style.opacity = '0';
+        } else {
+            document.getElementById('local-video').style.opacity = '1';
+            document.getElementById('remote-video').style.opacity = '1';
+        }
+    }
+
+    function setupPeerEvents(p) {
+        p.on('signal', data => socket.emit('signal_data', {signal: data, room: room}));
+        p.on('stream', stream => {
+            var video = document.getElementById('remote-video');
+            video.srcObject = stream;
+            // AUDIO FIX: Ensure it plays
+            video.play().catch(e => console.log("Auto-play blocked", e));
+        });
+    }
+
     socket.on('signal_received', data => { if(peer) peer.signal(data.signal); });
 
     function endCall() {
         if(peer) peer.destroy();
-        if(localStream) localStream.getTracks().forEach(track => track.stop());
-        window.location.reload(); 
+        if(localStream) localStream.getTracks().forEach(t => t.stop());
+        document.getElementById('video-overlay').style.display = 'none';
+        socket.emit('update_status', {status: 'idle', room: room}); // Reset Icon
+        callActive = false;
+        window.location.reload();
     }
+    
+    function rejectCall() { document.getElementById('call-alert').style.display = 'none'; }
+    function toggleMute() { localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled; }
+    function toggleVideo() { localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled; }
+
 </script>
 </body>
 </html>

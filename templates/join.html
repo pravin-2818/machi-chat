@@ -2,33 +2,46 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join Room</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; justify-content: center; align-items: center; background: #1a1a2e; color: white; margin: 0; }
-        .box { background: rgba(255, 255, 255, 0.05); padding: 40px; border-radius: 20px; width: 350px; text-align: center; box-shadow: 0 15px 25px rgba(0,0,0,0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-        h2 { margin-bottom: 30px; color: #00adb5; letter-spacing: 1px; }
-        input { width: 100%; padding: 15px 0; font-size: 16px; color: #fff; margin-bottom: 30px; border: none; border-bottom: 1px solid #fff; outline: none; background: transparent; transition: 0.3s; }
-        input:focus { border-bottom: 1px solid #00adb5; }
-        ::placeholder { color: rgba(255,255,255,0.5); }
-        button { padding: 12px 25px; background: #00adb5; color: white; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-size: 16px; transition: 0.3s; }
-        button:hover { background: #008c93; transform: scale(1.02); }
-        .alert { color: #ff6b6b; margin-bottom: 15px; font-size: 14px; }
-        a { color: #aaa; text-decoration: none; display: block; margin-top: 20px; font-size: 14px; }
+        body { 
+            background: #0a0a0a; color: white; font-family: 'Outfit', sans-serif; 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; margin: 0; 
+        }
+        .box { 
+            background: #161616; padding: 40px; border-radius: 20px; 
+            border: 1px solid #333; width: 90%; max-width: 400px; text-align: center; 
+        }
+        h2 { margin-bottom: 30px; color: #007bff; }
+        input {
+            width: 100%; padding: 15px; margin-bottom: 15px; background: #222; 
+            border: 1px solid #444; color: white; border-radius: 8px; font-size: 1.1rem; 
+            box-sizing: border-box;
+        }
+        input:focus { border-color: #007bff; outline: none; }
+        button {
+            width: 100%; padding: 15px; background: #007bff; color: white; 
+            border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;
+        }
+        a { color: #888; text-decoration: none; display: block; margin-top: 20px; font-size: 1rem; }
     </style>
 </head>
 <body>
     <div class="box">
-        <h2>Join Room</h2>
+        <h2>🚀 Join Room</h2>
         {% with messages = get_flashed_messages() %}
-            {% if messages %} <div class="alert">{{ messages[0] }}</div> {% endif %}
+            {% if messages %} <div style="color:red; margin-bottom:10px;">{{ messages[0] }}</div> {% endif %}
         {% endwith %}
         <form method="POST">
-            <input type="text" name="username" placeholder="Enter your name" required autocomplete="off">
-            <input type="text" name="room_id" placeholder="Room ID" value="{{ r_id }}" required>
-            <input type="text" name="password" placeholder="Password" value="{{ r_pass }}" required>
-            <button type="submit">Join Now</button>
+            <input type="text" name="username" placeholder="Your Name" required>
+            <input type="text" name="room_id" placeholder="Room ID" value="{{ r_id if r_id else '' }}" required>
+            <input type="password" name="password" placeholder="Password" value="{{ r_pass if r_pass else '' }}" required>
+            <button type="submit">Join</button>
         </form>
-        <a href="{{ url_for('index') }}">Back to Home</a>
+        <a href="{{ url_for('index') }}">Go Back</a>
     </div>
 </body>
 </html>

@@ -6,7 +6,8 @@ app.config['SECRET_KEY'] = 'machi_secret_key'
 socketio = SocketIO(app)
 
 rooms = {}       # { 'room_id': 'password' }
-room_users = {}  # { 'room_id': ['user1', 'user2'] }
+# இப்போ User விபரங்களை இப்படி சேமிப்போம்: { 'room_id': [{'name': 'Machi', 'status': 'idle'}, ...] }
+room_users = {}
 
 @app.route('/')
 def index():
@@ -18,14 +19,11 @@ def create():
         username = request.form.get('username')
         room_id = request.form.get('room_id')
         password = request.form.get('password')
-        
         if room_id in rooms:
             flash('Room ID already exists!', 'error')
             return redirect(url_for('create'))
-
         rooms[room_id] = password
         room_users[room_id] = []
-        
         session['username'] = username
         session['room'] = room_id
         return redirect(url_for('chat'))
@@ -33,25 +31,20 @@ def create():
 
 @app.route('/join', methods=['GET', 'POST'])
 def join():
-    # Link வழியாக வரும்போது சரியாக எடுக்க இந்த மாற்றம்
-    room_id = request.args.get('room_id', '')
-    password = request.args.get('password', '')
-
+    r_id = request.args.get('room_id', '')
+    r_pass = request.args.get('password', '')
     if request.method == 'POST':
         username = request.form.get('username')
         room_id = request.form.get('room_id')
         password = request.form.get('password')
-        
         if room_id in rooms and rooms[room_id] == password:
             session['username'] = username
             session['room'] = room_id
             return redirect(url_for('chat'))
         else:
-            flash('Invalid Room ID or Password!', 'error')
+            flash('Invalid ID or Password', 'error')
             return redirect(url_for('join'))
-            
-    # பாஸ்வேர்ட் தானாக வர இந்த r_pass முக்கியம்
-    return render_template('join.html', r_id=room_id, r_pass=password)
+    return render_template('join.html', r_id=r_id, r_pass=r_pass)
 
 @app.route('/chat')
 def chat():
@@ -59,12 +52,8 @@ def chat():
     room = session.get('room')
     if not username or not room: return redirect(url_for('index'))
     if room not in rooms: return redirect(url_for('index'))
-    
     current_password = rooms.get(room)
-    
-    # FIX: url_for பயன்படுத்துகிறோம் (இது &amp; பிரச்சனையை வரவிடாது)
     share_link = url_for('join', room_id=room, password=current_password, _external=True)
-    
     return render_template('chat.html', username=username, room=room, password=current_password, share_link=share_link)
 
 @app.route('/logout')
@@ -72,14 +61,24 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
-# --- Socket Logic (Same as before) ---
+# --- Socket Logic ---
 @socketio.on('join')
 def on_join(data):
     username = data['username']
     room = data['room']
     join_room(room)
     if room not in room_users: room_users[room] = []
-    if username not in room_users[room]: room_users[room].append(username)
+    
+    # Check if user already exists to update socket id logic if needed, but for now simple append
+    user_exists = False
+    for user in room_users[room]:
+        if user['name'] == username:
+            user_exists = True
+            break
+    
+    if not user_exists:
+        room_users[room].append({'name': username, 'status': 'idle'}) # Default status: idle
+    
     emit('update_users', {'users': room_users[room]}, room=room)
     emit('receive_message', {'msg': f"{username} joined.", 'user': 'System'}, room=room)
 
@@ -88,13 +87,13 @@ def on_disconnect():
     username = session.get('username')
     room = session.get('room')
     if username and room and room in room_users:
-        if username in room_users[room]: room_users[room].remove(username)
+        room_users[room] = [u for u in room_users[room] if u['name'] != username]
         leave_room(room)
         emit('update_users', {'users': room_users[room]}, room=room)
         emit('receive_message', {'msg': f"{username} left.", 'user': 'System'}, room=room)
-        if not room_users[room]: 
-            del room_users[room]
+        if not room_users[room]:
             if room in rooms: del rooms[room]
+            del room_users[room]
 
 @socketio.on('send_message')
 def handle_message(data):
@@ -104,6 +103,20 @@ def handle_message(data):
 def handle_typing(data):
     emit('display_typing', {'user': data['username']}, room=data['room'], include_self=False)
 
+# --- Call Status Updates ---
+@socketio.on('update_status')
+def handle_status(data):
+    # data = {'status': 'video'/'audio'/'idle', 'room': ...}
+    room = data['room']
+    username = session.get('username')
+    if room in room_users:
+        for user in room_users[room]:
+            if user['name'] == username:
+                user['status'] = data['status']
+                break
+        emit('update_users', {'users': room_users[room]}, room=room)
+
+# --- WebRTC Signaling ---
 @socketio.on('call_invite')
 def handle_call(data):
     emit('call_incoming', data, room=data['room'])
