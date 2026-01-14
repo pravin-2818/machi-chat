@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Join Room</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; justify-content: center; align-items: center; background: #1a1a2e; color: white; margin: 0; }
+        .box { background: rgba(255, 255, 255, 0.05); padding: 40px; border-radius: 20px; width: 350px; text-align: center; box-shadow: 0 15px 25px rgba(0,0,0,0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        h2 { margin-bottom: 30px; color: #00adb5; letter-spacing: 1px; }
+        input { width: 100%; padding: 15px 0; font-size: 16px; color: #fff; margin-bottom: 30px; border: none; border-bottom: 1px solid #fff; outline: none; background: transparent; transition: 0.3s; }
+        input:focus { border-bottom: 1px solid #00adb5; }
+        ::placeholder { color: rgba(255,255,255,0.5); }
+        button { padding: 12px 25px; background: #00adb5; color: white; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; width: 100%; font-size: 16px; transition: 0.3s; }
+        button:hover { background: #008c93; transform: scale(1.02); }
+        .alert { color: #ff6b6b; margin-bottom: 15px; font-size: 14px; }
+        a { color: #aaa; text-decoration: none; display: block; margin-top: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>Join Room</h2>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %} <div class="alert">{{ messages[0] }}</div> {% endif %}
+        {% endwith %}
+        <form method="POST">
+            <input type="text" name="username" placeholder="Enter your name" required autocomplete="off">
+            <input type="text" name="room_id" placeholder="Room ID" value="{{ r_id }}" required>
+            <input type="text" name="password" placeholder="Password" value="{{ r_pass }}" required>
+            <button type="submit">Join Now</button>
+        </form>
+        <a href="{{ url_for('index') }}">Back to Home</a>
+    </div>
+</body>
+</html>

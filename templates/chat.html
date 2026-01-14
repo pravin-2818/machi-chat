@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Chat Room</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.1/simplepeer.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: #e0e0e0; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+
+        /* --- Sidebar --- */
+        .sidebar {
+            width: 280px; background: #1f1f1f; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #333;
+            transition: transform 0.3s ease; z-index: 10;
+        }
+
+        /* Mobile Responsive Sidebar */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute; left: 0; top: 0; height: 100%;
+                transform: translateX(-100%); /* மறைந்திருக்கும் */
+                box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+            }
+            .sidebar.active { transform: translateX(0); } /* பட்டன் அமுக்கினால் வரும் */
+        }
+
+        .sidebar h2 { color: #bb86fc; margin-top: 0; }
+        .info-card { background: #2c2c2c; padding: 15px; border-radius: 10px; margin-top: 20px; font-size: 0.9rem; }
+        .info-card strong { color: #fff; }
+        .btn-copy { background: #03dac6; color: black; border: none; padding: 10px; width: 100%; margin-top: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-logout { margin-top: auto; background: #cf6679; color: black; border: none; padding: 12px; border-radius: 5px; cursor: pointer; text-align: center; text-decoration: none; font-weight: bold; }
+
+        .user-list { margin-top: 20px; overflow-y: auto; flex: 1; }
+        .user-item { padding: 10px; background: #2c2c2c; margin-bottom: 5px; border-radius: 5px; display: flex; align-items: center; gap: 10px; }
+        .status-dot { width: 10px; height: 10px; background: #00e676; border-radius: 50%; }
+
+        /* --- Chat Area --- */
+        .chat-container { flex: 1; display: flex; flex-direction: column; background: #121212; position: relative; width: 100%; }
+        
+        .chat-header { padding: 15px 20px; background: #1f1f1f; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        .menu-btn { display: none; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+        @media (max-width: 768px) { .menu-btn { display: block; } } /* மொபைலில் மட்டும் தெரியும் */
+
+        .typing-indicator { color: #03dac6; font-size: 0.9rem; font-style: italic; min-height: 20px; }
+        
+        .call-controls { display: flex; gap: 15px; }
+        .call-btn { background: #333; border: none; color: white; padding: 10px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; transition: 0.2s; }
+        .call-btn:hover { background: #bb86fc; color: black; }
+
+        #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        .message { max-width: 70%; padding: 12px 18px; border-radius: 18px; font-size: 15px; position: relative; }
+        .my-msg { align-self: flex-end; background: linear-gradient(135deg, #bb86fc, #7b1fa2); color: white; border-bottom-right-radius: 4px; }
+        .other-msg { align-self: flex-start; background: #2c2c2c; color: #e0e0e0; border-bottom-left-radius: 4px; }
+        .user-label { font-size: 0.75rem; font-weight: bold; display: block; color: rgba(255,255,255,0.7); margin-bottom: 4px; }
+        .system-msg { align-self: center; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; color: #888; }
+
+        .input-area { padding: 20px; background: #1f1f1f; display: flex; align-items: center; gap: 15px; border-top: 1px solid #333; }
+        input[type="text"] { flex: 1; padding: 15px; border-radius: 30px; border: none; background: #2c2c2c; color: white; outline: none; font-size: 16px; }
+        button#send-btn { background: #bb86fc; color: black; border: none; padding: 15px 25px; border-radius: 30px; cursor: pointer; font-weight: bold; }
+        
+        #emoji-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+        emoji-picker { position: absolute; bottom: 80px; left: 20px; display: none; z-index: 100; --background: #2c2c2c; }
+
+        /* Video / Alert Overlays */
+        #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 5; }
+        #video-container { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 500px; background: #000; border-radius: 10px; padding: 10px; display: none; z-index: 500; border: 2px solid #bb86fc; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        video { width: 100%; border-radius: 5px; background: #222; margin-bottom: 5px; }
+        #local-video { width: 80px; position: absolute; bottom: 20px; right: 20px; border: 1px solid white; }
+        
+        #call-alert { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; padding: 20px; border-radius: 10px; display: none; z-index: 1000; box-shadow: 0 5px 20px rgba(0,0,0,0.5); border: 1px solid #03dac6; text-align: center; }
+        #call-alert button { margin: 0 10px; padding: 8px 20px; border-radius: 5px; border: none; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="overlay" onclick="toggleSidebar()"></div>
+
+    <div id="call-alert">
+        <p id="call-msg" style="color:white; margin-bottom:10px;">Incoming Call...</p>
+        <button onclick="acceptCall()" style="background:#00e676; color:black;">Accept</button>
+        <button onclick="rejectCall()" style="background:#ff1744; color:white;">Reject</button>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <h2>💬 Room Info</h2>
+        <div class="info-card">
+            <p>ID: <strong>{{ room }}</strong></p>
+            <p>Pass: <strong>{{ password }}</strong></p>
+            <button class="btn-copy" onclick="copyLink()">📋 Copy Link</button>
+        </div>
+        <h3 style="margin-top:20px; color:#03dac6;">👥 Online Users</h3>
+        <div class="user-list" id="user-list"></div>
+        <a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+                <div class="typing-indicator" id="typing-status"></div>
+            </div>
+            <div class="call-controls">
+                <button class="call-btn" onclick="startCall('audio')" title="Audio Call">📞</button>
+                <button class="call-btn" onclick="startCall('video')" title="Video Call">📹</button>
+            </div>
+        </div>
+
+        <div id="chat-box"><div class="system-msg">🔒 Secured connection established.</div></div>
+        
+        <div id="video-container">
+            <video id="remote-video" autoplay playsinline></video>
+            <video id="local-video" autoplay playsinline muted></video>
+            <button onclick="endCall()" style="background:red; color:white; width:100%; padding:10px; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">End Call</button>
+        </div>
+
+        <div class="input-area">
+            <button id="emoji-btn">😎</button>
+            <emoji-picker class="dark"></emoji-picker>
+            <input type="text" id="msg-input" placeholder="Type message..." autocomplete="off">
+            <button id="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+<script>
+    // --- Mobile Sidebar Toggle ---
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        sidebar.classList.toggle('active');
+        overlay.style.display = sidebar.classList.contains('active') ? 'block' : 'none';
+    }
+
+    // --- Javascript Logic (Same as before) ---
+    var socket = io();
+    var currentRoom = "{{ room }}";
+    var username = "{{ username }}";
+    var localStream;
+    var peer;
+    var callActive = false;
+
+    function copyLink() {
+        var link = "{{ share_link | safe }}"; 
+        navigator.clipboard.writeText(link).then(() => alert("Invite Link Copied!"));
+    }
+
+    socket.emit('join', {'username': username, 'room': currentRoom});
+
+    socket.on('update_users', function(data) {
+        var list = document.getElementById('user-list');
+        list.innerHTML = "";
+        data.users.forEach(user => {
+            var item = `<div class="user-item"><div class="status-dot"></div><span>${user}</span></div>`;
+            list.innerHTML += item;
+        });
+    });
+
+    var input = document.getElementById("msg-input");
+    var typingTimeout;
+    input.addEventListener('input', function() { socket.emit('typing', {'username': username, 'room': currentRoom}); });
+    socket.on('display_typing', function(data) {
+        var status = document.getElementById('typing-status');
+        status.innerText = data.user + " is typing...";
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => { status.innerText = ""; }, 2000);
+    });
+
+    function sendMessage() {
+        var msg = input.value;
+        if(msg.trim() !== "") {
+            socket.emit('send_message', {'msg': msg, 'user': username, 'room': currentRoom});
+            input.value = "";
+        }
+    }
+    input.addEventListener("keydown", function(e) { if(e.key === "Enter") sendMessage(); });
+
+    socket.on('receive_message', function(data) {
+        var chatBox = document.getElementById("chat-box");
+        var div = document.createElement("div");
+        if (data.user === 'System') {
+            div.className = "message system-msg";
+            div.innerHTML = data.msg;
+        } else {
+            div.className = "message " + (data.user === username ? "my-msg" : "other-msg");
+            div.innerHTML = `<span class='user-label'>${data.user}</span>${data.msg}`;
+        }
+        chatBox.appendChild(div);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    // Call Logic
+    function startCall(type) {
+        if(callActive) return alert("Call active!");
+        navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true }).then(stream => {
+            localStream = stream;
+            document.getElementById('video-container').style.display = 'block';
+            document.getElementById('local-video').srcObject = stream;
+            socket.emit('call_invite', {'caller': username, 'room': currentRoom, 'type': type});
+            callActive = true;
+            peer = new SimplePeer({ initiator: true, trickl: false, stream: stream });
+            peer.on('signal', data => { socket.emit('signal_data', {'signal': data, 'room': currentRoom}); });
+            peer.on('stream', stream => { document.getElementById('remote-video').srcObject = stream; });
+        }).catch(err => alert("Camera Error: " + err));
+    }
+
+    socket.on('call_incoming', function(data) {
+        if(data.caller === username || callActive) return;
+        document.getElementById('call-msg').innerText = "📞 " + data.caller + " is calling...";
+        document.getElementById('call-alert').style.display = 'block';
+        window.incomingSignalData = data;
+    });
+
+    function acceptCall() {
+        document.getElementById('call-alert').style.display = 'none';
+        var data = window.incomingSignalData;
+        navigator.mediaDevices.getUserMedia({ video: data.type === 'video', audio: true }).then(stream => {
+            localStream = stream;
+            document.getElementById('video-container').style.display = 'block';
+            document.getElementById('local-video').srcObject = stream;
+            callActive = true;
+            peer = new SimplePeer({ initiator: false, trickl: false, stream: stream });
+            peer.on('signal', data => { socket.emit('signal_data', {'signal': data, 'room': currentRoom}); });
+            peer.on('stream', stream => { document.getElementById('remote-video').srcObject = stream; });
+            peer.signal(data.signal); 
+        });
+    }
+
+    function rejectCall() { document.getElementById('call-alert').style.display = 'none'; }
+    socket.on('signal_received', function(data) { if(peer) peer.signal(data.signal); });
+
+    function endCall() {
+        if(peer) peer.destroy();
+        if(localStream) localStream.getTracks().forEach(track => track.stop());
+        window.location.reload(); 
+    }
+
+    const emojiBtn = document.getElementById('emoji-btn');
+    const picker = document.querySelector('emoji-picker');
+    emojiBtn.addEventListener('click', (e) => { e.stopPropagation(); picker.style.display = picker.style.display === 'none' ? 'block' : 'none'; });
+    picker.addEventListener('emoji-click', e => { document.getElementById("msg-input").value += e.detail.unicode; });
+    document.addEventListener('click', (e) => { if (!picker.contains(e.target) && e.target !== emojiBtn) picker.style.display = 'none'; });
+</script>
+</body>
+</html>
