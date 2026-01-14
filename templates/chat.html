@@ -12,38 +12,46 @@
         * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
         body { 
             margin: 0; font-family: 'Inter', sans-serif; background: #0a0a0a; color: white; 
-            height: 100dvh; /* Mobile height fix */
-            display: flex; overflow: hidden; 
+            height: 100dvh; display: flex; overflow: hidden; 
         }
 
-        /* Sidebar (User List) */
-        .sidebar {
-            width: 280px; background: #111; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 20px; transition: 0.3s; z-index: 100;
+        /* --- Sidebar & Overlay (FIXED) --- */
+        #overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); /* Darker Background */
+            z-index: 2999; /* High priority */
+            backdrop-filter: blur(2px);
         }
+
+        .sidebar {
+            width: 280px; background: #111; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 20px; 
+            transition: transform 0.3s ease-in-out; 
+            z-index: 3000; /* Above overlay */
+            position: relative;
+        }
+
         @media (max-width: 768px) {
-            .sidebar { position: fixed; left: -100%; top: 0; height: 100%; width: 85%; box-shadow: 10px 0 30px rgba(0,0,0,0.8); }
-            .sidebar.active { left: 0; }
+            .sidebar { 
+                position: fixed; left: 0; top: 0; height: 100%; width: 85%; max-width: 300px;
+                transform: translateX(-100%); 
+                box-shadow: 10px 0 30px rgba(0,0,0,0.9);
+            }
+            .sidebar.active { transform: translateX(0); }
         }
 
         .user-list { flex: 1; overflow-y: auto; margin-top: 20px; }
-        .user-item { 
-            padding: 12px; background: #1a1a1a; margin-bottom: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; 
-        }
+        .user-item { padding: 12px; background: #1a1a1a; margin-bottom: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; }
         .user-name { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-        .status-icon { font-size: 1.2rem; } /* Call Icon */
+        .status-icon { font-size: 1.2rem; }
 
         /* Chat Area */
-        .chat-area { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; width: 100%; }
         
-        .header { 
-            padding: 15px; background: #111; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; 
-        }
-        .menu-btn { background: none; border: none; color: white; font-size: 1.5rem; display: none; }
+        .header { padding: 15px; background: #111; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        .menu-btn { background: none; border: none; color: white; font-size: 1.8rem; display: none; cursor: pointer; }
         @media (max-width: 768px) { .menu-btn { display: block; } }
 
-        .call-btn {
-            background: #222; border: 1px solid #444; color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; margin-left: 10px;
-        }
+        .call-btn { background: #222; border: 1px solid #444; color: white; width: 45px; height: 45px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; margin-left: 10px; }
         .call-btn:hover { background: #007bff; border-color: #007bff; }
 
         #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
@@ -51,46 +59,26 @@
         .my-msg { align-self: flex-end; background: #007bff; color: white; }
         .other-msg { align-self: flex-start; background: #222; border: 1px solid #333; }
 
-        /* Input Area - Fixed for Mobile */
-        .input-area {
-            padding: 15px; background: #111; border-top: 1px solid #333; display: flex; gap: 10px;
-            /* Safe area for iPhone home bar */
-            padding-bottom: env(safe-area-inset-bottom, 20px); 
-        }
+        .input-area { padding: 15px; background: #111; border-top: 1px solid #333; display: flex; gap: 10px; padding-bottom: env(safe-area-inset-bottom, 20px); }
         input { flex: 1; padding: 12px; border-radius: 25px; border: 1px solid #333; background: #222; color: white; font-size: 1rem; }
         #send-btn { background: #007bff; border: none; padding: 12px 20px; border-radius: 25px; font-weight: bold; }
 
-        /* ZOOM STYLE VIDEO UI */
-        #video-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 2000; display: none; flex-direction: column;
-        }
+        /* Zoom UI */
+        #video-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 4000; display: none; flex-direction: column; }
         .video-grid { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; }
         video#remote-video { width: 100%; height: 100%; object-fit: contain; }
-        video#local-video {
-            position: absolute; bottom: 100px; right: 20px; width: 100px; height: 140px;
-            background: #222; border: 1px solid #555; border-radius: 8px; object-fit: cover; z-index: 2001;
-        }
-        
-        /* Zoom Controls Bar */
-        .video-controls {
-            height: 80px; background: #111; display: flex; justify-content: center; align-items: center; gap: 30px;
-            padding-bottom: env(safe-area-inset-bottom, 10px);
-        }
-        .ctrl-btn {
-            background: #333; border: none; color: white; width: 50px; height: 50px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center;
-        }
+        video#local-video { position: absolute; bottom: 100px; right: 20px; width: 100px; height: 140px; background: #222; border: 1px solid #555; border-radius: 8px; object-fit: cover; z-index: 4001; }
+        .video-controls { height: 80px; background: #111; display: flex; justify-content: center; align-items: center; gap: 30px; padding-bottom: env(safe-area-inset-bottom, 10px); }
+        .ctrl-btn { background: #333; border: none; color: white; width: 50px; height: 50px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; justify-content: center; align-items: center; }
         .btn-end { background: #ff4757; width: 60px; height: 60px; font-size: 1.5rem; }
 
         /* Call Alert */
-        #call-alert {
-            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(20,20,20,0.95); padding: 20px; border-radius: 15px; border: 1px solid #007bff;
-            display: none; z-index: 3000; text-align: center; width: 90%; max-width: 300px;
-        }
+        #call-alert { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.95); padding: 20px; border-radius: 15px; border: 1px solid #007bff; display: none; z-index: 5000; text-align: center; width: 90%; max-width: 300px; }
     </style>
 </head>
 <body>
+
+    <div id="overlay" onclick="closeSidebar()"></div>
 
     <div class="sidebar" id="sidebar">
         <h2 style="color:#007bff; margin-top:0;">Machi Chat</h2>
@@ -106,7 +94,7 @@
 
     <div class="chat-area">
         <div class="header">
-            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <button class="menu-btn" onclick="openSidebar()">☰</button>
             <div id="typing" style="color:#007bff; font-size:0.9rem;"></div>
             <div>
                 <button class="call-btn" onclick="startCall('audio')">📞</button>
@@ -143,6 +131,18 @@
     </div>
 
 <script>
+    // --- SIDEBAR LOGIC (FIXED) ---
+    function openSidebar() {
+        document.getElementById('sidebar').classList.add('active');
+        document.getElementById('overlay').style.display = 'block';
+    }
+    
+    function closeSidebar() {
+        document.getElementById('sidebar').classList.remove('active');
+        document.getElementById('overlay').style.display = 'none';
+    }
+
+    // --- OTHER LOGIC ---
     var socket = io();
     var room = "{{ room }}";
     var user = "{{ username }}";
@@ -150,59 +150,50 @@
     var peer;
     var callActive = false;
 
-    // Mobile Sidebar
-    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
     function copyLink() { navigator.clipboard.writeText("{{ share_link | safe }}").then(()=>alert('Copied!')); }
 
-    // Init
     socket.emit('join', {username: user, room: room});
-
-    // --- User List with Icons ---
-    socket.on('update_users', function(data) {
+    socket.on('update_users', data => {
         var list = document.getElementById('user-list');
         list.innerHTML = "";
         data.users.forEach(u => {
-            var icon = "";
-            if(u.status === 'audio') icon = "📞";
-            if(u.status === 'video') icon = "📹";
-            list.innerHTML += `
-                <div class="user-item">
-                    <div class="user-name">🟢 ${u.name}</div>
-                    <div class="status-icon">${icon}</div>
-                </div>`;
+            var icon = u.status === 'audio' ? "📞" : (u.status === 'video' ? "📹" : "");
+            list.innerHTML += `<div class="user-item"><div class="user-name">🟢 ${u.name}</div><div class="status-icon">${icon}</div></div>`;
         });
     });
 
-    // Chat
     var input = document.getElementById('msg');
     input.addEventListener('keydown', e => { if(e.key === 'Enter') send(); });
     function send() {
-        if(input.value.trim()){
-            socket.emit('send_message', {msg: input.value, user: user, room: room});
-            input.value = '';
-        }
+        if(input.value.trim()){ socket.emit('send_message', {msg: input.value, user: user, room: room}); input.value = ''; }
     }
     socket.on('receive_message', data => {
         var box = document.getElementById('chat-box');
         var cls = (data.user === user) ? 'my-msg' : (data.user === 'System' ? 'system' : 'other-msg');
-        box.innerHTML += `<div class="message ${cls}"><b>${data.user === 'System'?'':data.user}</b> ${data.msg}</div>`;
+        box.innerHTML += `<div class="message ${cls}"><b>${data.user==='System'?'':data.user}</b> ${data.msg}</div>`;
         box.scrollTop = box.scrollHeight;
     });
 
-    // --- ZOOM STYLE CALL LOGIC ---
+    // --- CALL LOGIC WITH ERROR HANDLING ---
     function startCall(type) {
         if(callActive) return alert("Already on call!");
         navigator.mediaDevices.getUserMedia({video: type==='video', audio: true}).then(stream => {
             setupCallUI(stream, type);
             socket.emit('call_invite', {caller: user, room: room, type: type});
-            socket.emit('update_status', {status: type, room: room}); // Update Icon
-            
+            socket.emit('update_status', {status: type, room: room});
             peer = new SimplePeer({
                 initiator: true, trickl: false, stream: stream,
                 config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
             });
             setupPeerEvents(peer);
-        }).catch(e => alert("Permission Error: " + e));
+        }).catch(e => {
+            // ERROR HANDLING
+            if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+                alert("⚠️ கேமரா ஆன் ஆகல! \n\nகாரணம்: வேற டேப் (Tab) அல்லது ஆப் கேமராவை யூஸ் பண்ணுது.\n\nதீர்வு: பழைய டேப்பை க்ளோஸ் பண்ணிட்டு ரீஃப்ரெஷ் பண்ணுங்க.");
+            } else {
+                alert("Error: " + e.message);
+            }
+        });
     }
 
     socket.on('call_incoming', data => {
@@ -217,15 +208,14 @@
         var data = window.incomingData;
         navigator.mediaDevices.getUserMedia({video: data.type==='video', audio: true}).then(stream => {
             setupCallUI(stream, data.type);
-            socket.emit('update_status', {status: data.type, room: room}); // Update Icon
-            
+            socket.emit('update_status', {status: data.type, room: room});
             peer = new SimplePeer({
                 initiator: false, trickl: false, stream: stream,
                 config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
             });
             setupPeerEvents(peer);
             peer.signal(data.signal);
-        });
+        }).catch(e => alert("Error: " + e));
     }
 
     function setupCallUI(stream, type) {
@@ -233,7 +223,6 @@
         localStream = stream;
         document.getElementById('video-overlay').style.display = 'flex';
         document.getElementById('local-video').srcObject = stream;
-        // If audio call, hide videos but keep stream active
         if(type === 'audio') {
             document.getElementById('local-video').style.opacity = '0';
             document.getElementById('remote-video').style.opacity = '0';
@@ -248,7 +237,6 @@
         p.on('stream', stream => {
             var video = document.getElementById('remote-video');
             video.srcObject = stream;
-            // AUDIO FIX: Ensure it plays
             video.play().catch(e => console.log("Auto-play blocked", e));
         });
     }
@@ -259,7 +247,7 @@
         if(peer) peer.destroy();
         if(localStream) localStream.getTracks().forEach(t => t.stop());
         document.getElementById('video-overlay').style.display = 'none';
-        socket.emit('update_status', {status: 'idle', room: room}); // Reset Icon
+        socket.emit('update_status', {status: 'idle', room: room});
         callActive = false;
         window.location.reload();
     }
@@ -267,7 +255,6 @@
     function rejectCall() { document.getElementById('call-alert').style.display = 'none'; }
     function toggleMute() { localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled; }
     function toggleVideo() { localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled; }
-
 </script>
 </body>
 </html>
